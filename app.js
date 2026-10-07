@@ -314,25 +314,26 @@
 
     app.innerHTML = `
       <header class="topbar">
-        <div style="flex:1">
+        <div style="flex:1;min-width:0">
           <h1>${APP_NAME}<span class="sub">Local only · ₹ INR</span></h1>
         </div>
+        <button class="btn btn-primary" id="add-person-top" type="button" style="flex:none;min-width:auto;padding:8px 12px;min-height:40px;font-size:0.85rem">＋ Add</button>
       </header>
       <div class="page">
         <p class="hint">Tap a card to open their ledger. Positive = you still owe them; negative = advances exceeded salary (carries forward). Opening starts at ₹0 unless you set a starting balance.</p>
         ${cards || empty}
         ${
           state.maids.length
-            ? `<button class="btn btn-secondary btn-block" id="add-person" type="button" style="margin-top:4px">＋ Add person</button>`
+            ? `<button class="btn btn-primary btn-block" id="add-person" type="button" style="margin-top:12px">＋ Add person</button>`
             : ""
         }
       </div>`;
 
     const openAdd = () => openAddPersonSheet();
-    const addBtn = document.getElementById("add-person");
-    if (addBtn) addBtn.onclick = openAdd;
-    const emptyAdd = document.getElementById("empty-add");
-    if (emptyAdd) emptyAdd.onclick = openAdd;
+    ["add-person", "add-person-top", "empty-add"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.onclick = openAdd;
+    });
 
     app.querySelectorAll("[data-open]").forEach((el) => {
       el.onclick = (ev) => {
