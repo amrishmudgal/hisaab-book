@@ -1,2 +1,5 @@
 # Hisaab Book
-Personal maid salary tracker (web preview). Data stays in your browser localStorage.
+
+Local-only PWA for salary / advance ledgers (maids or anyone you pay).
+
+Live: https://amrishmudgal.github.io/hisaab-book/

@@ -58,7 +58,7 @@
       if (!raw) return defaultState();
       const data = JSON.parse(raw);
       if (!data || !Array.isArray(data.maids)) return defaultState();
-      // Migrate / sanitize each maid
+      // Migrate / sanitize each person (storage key & array name kept for compatibility)
       data.maids = data.maids.map(migrateMaid);
       return data;
     } catch {
@@ -87,7 +87,7 @@
         : 0;
     return {
       ...m,
-      name: m.name || "Maid",
+      name: m.name || "Person",
       salaryHistory: Array.isArray(m.salaryHistory) ? m.salaryHistory : [],
       payments,
       trackingFrom,
@@ -100,6 +100,21 @@
   }
 
   let state = load();
+
+  function createPerson({ name, salary, startingBalance }) {
+    const ym = monthKey();
+    const amount = Math.max(0, Math.round(Number(salary) || 0));
+    const bal = Math.round(Number(startingBalance) || 0);
+    const cleanName = String(name || "").trim() || "Person";
+    return {
+      id: uid(),
+      name: cleanName,
+      salaryHistory: [{ id: uid(), amount, effectiveFrom: ym }],
+      payments: [],
+      trackingFrom: ym,
+      startingBalance: bal,
+    };
+  }
 
   function salaryForMonth(maid, ym) {
     const hist = [...(maid.salaryHistory || [])].sort((a, b) =>
@@ -123,7 +138,7 @@
     return paymentsInMonth(maid, ym).reduce((s, p) => s + (Number(p.amount) || 0), 0);
   }
 
-  /** First month of ledger accrual for this maid. */
+  /** First month of ledger accrual for this person. */
   function trackingStart(maid) {
     if (maid.trackingFrom && /^\d{4}-\d{2}$/.test(maid.trackingFrom)) return maid.trackingFrom;
     const payMonths = (maid.payments || []).map((p) => monthKey(p.date)).sort();
@@ -203,8 +218,8 @@
   }
 
   function balChip(n) {
-    if (n > 0) return `<span class="chip ok">You owe her</span>`;
-    if (n < 0) return `<span class="chip warn">She owes household</span>`;
+    if (n > 0) return `<span class="chip ok">You owe them</span>`;
+    if (n < 0) return `<span class="chip warn">They owe household</span>`;
     return `<span class="chip">Settled</span>`;
   }
 
@@ -215,17 +230,17 @@
         <div class="setup-hero">
           <div class="logo">₹</div>
           <h1>${APP_NAME}</h1>
-          <p>Track two maids’ salaries, advances, and carry-forward balances — stored only on this phone.</p>
+          <p>Track salaries, advances, and carry-forward balances for maids or anyone you pay — stored only on this phone.</p>
         </div>
         <form id="setup-form">
           ${[1, 2]
             .map(
               (i) => `
             <div class="maid-block">
-              <h3><span class="maid-avatar" style="width:32px;height:32px;font-size:0.8rem;border-radius:10px">${i}</span> Maid ${i}</h3>
+              <h3><span class="maid-avatar" style="width:32px;height:32px;font-size:0.8rem;border-radius:10px">${i}</span> Person ${i}</h3>
               <div class="field">
                 <label>Name</label>
-                <input name="name${i}" required maxlength="40" placeholder="e.g. Sunita" value="Maid ${i}" />
+                <input name="name${i}" required maxlength="40" placeholder="e.g. Sunita" value="Person ${i}" />
               </div>
               <div class="field">
                 <label>Monthly salary (₹)</label>
@@ -234,12 +249,12 @@
               <div class="field">
                 <label>Starting balance (₹)</label>
                 <input name="start${i}" type="number" inputmode="numeric" step="1" placeholder="0" value="0" />
-                <div class="error" style="color:var(--text-muted);margin-top:4px">Usually 0. Use only if you already owe her (or she owes you — use negative) from before you start tracking.</div>
+                <div class="error" style="color:var(--text-muted);margin-top:4px">Usually 0. Use only if you already owe them (or they owe you — use negative) from before you start tracking.</div>
               </div>
             </div>`
             )
             .join("")}
-          <p class="hint">Tracking starts from <strong>this month</strong>. Past unpaid months are <strong>not</strong> auto-added. You can change names, salary, and starting balance anytime.</p>
+          <p class="hint">Tracking starts from <strong>this month</strong>. Past unpaid months are <strong>not</strong> auto-added. You can add more people anytime, and change names, salary, and starting balance later.</p>
           <button class="btn btn-primary btn-block" type="submit">Start tracking</button>
         </form>
       </div>`;
@@ -247,24 +262,16 @@
     document.getElementById("setup-form").onsubmit = (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
-      const ym = monthKey();
       const maids = [1, 2].map((i) => {
-        const name = String(fd.get(`name${i}`) || `Maid ${i}`).trim() || `Maid ${i}`;
+        const name = String(fd.get(`name${i}`) || `Person ${i}`).trim() || `Person ${i}`;
         const amount = Math.max(0, Math.round(Number(fd.get(`salary${i}`)) || 0));
         const startingBalance = Math.round(Number(fd.get(`start${i}`)) || 0);
-        return {
-          id: uid(),
-          name,
-          salaryHistory: [{ id: uid(), amount, effectiveFrom: ym }],
-          payments: [],
-          trackingFrom: ym,
-          startingBalance,
-        };
+        return createPerson({ name, salary: amount, startingBalance });
       });
       state = { setupDone: true, maids };
       save(state);
       navigate({ name: "home" });
-      toast("Ready — tap a maid to open her ledger");
+      toast("Ready — tap a card to open their ledger");
     };
   }
 
@@ -297,6 +304,14 @@
       })
       .join("");
 
+    const empty = `
+      <div class="empty">
+        <div class="emoji">👋</div>
+        <p><strong>No people yet</strong></p>
+        <p>Add a maid or anyone you pay to start a ledger.</p>
+        <button class="btn btn-primary" id="empty-add" type="button" style="margin-top:12px;flex:none;min-width:160px">＋ Add person</button>
+      </div>`;
+
     app.innerHTML = `
       <header class="topbar">
         <div style="flex:1">
@@ -304,9 +319,20 @@
         </div>
       </header>
       <div class="page">
-        <p class="hint">Tap a maid’s card to open <strong>her</strong> ledger. Positive = you still owe her; negative = advances exceeded salary (carries forward). Opening starts at ₹0 unless you set a starting balance.</p>
-        ${cards || `<div class="empty"><div class="emoji">👋</div><p>No maids yet.</p></div>`}
+        <p class="hint">Tap a card to open their ledger. Positive = you still owe them; negative = advances exceeded salary (carries forward). Opening starts at ₹0 unless you set a starting balance.</p>
+        ${cards || empty}
+        ${
+          state.maids.length
+            ? `<button class="btn btn-secondary btn-block" id="add-person" type="button" style="margin-top:4px">＋ Add person</button>`
+            : ""
+        }
       </div>`;
+
+    const openAdd = () => openAddPersonSheet();
+    const addBtn = document.getElementById("add-person");
+    if (addBtn) addBtn.onclick = openAdd;
+    const emptyAdd = document.getElementById("empty-add");
+    if (emptyAdd) emptyAdd.onclick = openAdd;
 
     app.querySelectorAll("[data-open]").forEach((el) => {
       el.onclick = (ev) => {
@@ -341,7 +367,7 @@
       </header>
       <div class="page">
         <div class="name-banner">
-          <div class="label">Maid ledger</div>
+          <div class="label">Person ledger</div>
           <div class="maid-name">${escapeHtml(maid.name)}</div>
           <div class="actions">
             <button class="ghost" id="rename-btn" type="button">Edit name</button>
@@ -410,6 +436,7 @@
               : `<div class="empty"><div class="emoji">🧾</div><p>No payments for ${escapeHtml(maid.name)} this month.</p><p>Tap ＋ Add to record an advance.</p></div>`
           }
         </div>
+        <button class="btn btn-danger btn-block" id="remove-person" type="button" style="margin-top:16px">Remove ${escapeHtml(maid.name)}</button>
         <div class="fab-spacer"></div>
       </div>`;
 
@@ -426,6 +453,7 @@
     document.getElementById("salary-btn").onclick = () => openSalarySheet(maid, viewMonth);
     document.getElementById("opening-btn").onclick = () => openOpeningSheet(maid);
     document.getElementById("add-pay").onclick = () => openPaymentSheet(maid, null, viewMonth);
+    document.getElementById("remove-person").onclick = () => openRemovePersonSheet(maid);
     app.querySelectorAll("[data-edit-pay]").forEach((el) => {
       el.onclick = () => {
         const p = maid.payments.find((x) => x.id === el.getAttribute("data-edit-pay"));
@@ -450,15 +478,96 @@
     return wrap;
   }
 
+  function openAddPersonSheet() {
+    const ov = openOverlay(`
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <h2>Add person</h2>
+        <p class="sheet-sub">Create a new ledger for a maid or anyone you pay. Tracking starts from <strong>this month</strong>.</p>
+        <form id="add-person-form">
+          <div class="field">
+            <label>Name</label>
+            <input name="name" required maxlength="40" placeholder="e.g. Sunita" autofocus />
+          </div>
+          <div class="field">
+            <label>Monthly salary (₹)</label>
+            <input name="salary" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="0" />
+          </div>
+          <div class="field">
+            <label>Starting balance (₹)</label>
+            <input name="bal" type="number" inputmode="decimal" step="1" value="0" />
+            <div class="hint" style="margin:8px 0 0">
+              <strong>How to enter it</strong><br/>
+              • <code>0</code> — clean start<br/>
+              • Positive e.g. <code>2000</code> — you already owed them ₹2,000<br/>
+              • Negative e.g. <code>-1500</code> — they already took ₹1,500 more than salary (type the minus sign)
+            </div>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn btn-secondary" id="cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add person</button>
+          </div>
+        </form>
+      </div>`);
+    ov.querySelector("#cancel").onclick = () => ov.remove();
+    ov.querySelector("#add-person-form").onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = String(fd.get("name") || "").trim();
+      if (!name) return;
+      const salary = Math.max(0, Math.round(Number(fd.get("salary")) || 0));
+      const startingBalance = Math.round(Number(fd.get("bal")) || 0);
+      const person = createPerson({ name, salary, startingBalance });
+      state.maids.push(person);
+      state.setupDone = true;
+      save(state);
+      ov.remove();
+      toast(`Added ${name}`);
+      navigate({ name: "detail", maidId: person.id });
+    };
+  }
+
+  function openRemovePersonSheet(maid) {
+    const ov = openOverlay(
+      `<div class="dialog">
+        <h3>Remove ${escapeHtml(maid.name)}?</h3>
+        <p>This permanently deletes their ledger, payments, and salary history on this device. Type <strong>DELETE</strong> to confirm.</p>
+        <div class="field" style="margin-bottom:14px">
+          <label>Type DELETE</label>
+          <input id="confirm-text" maxlength="20" placeholder="DELETE" autocomplete="off" autofocus />
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-secondary" id="no">Cancel</button>
+          <button class="btn btn-danger" id="yes" disabled>Remove</button>
+        </div>
+      </div>`,
+      { center: true }
+    );
+    const input = ov.querySelector("#confirm-text");
+    const yes = ov.querySelector("#yes");
+    input.oninput = () => {
+      yes.disabled = input.value.trim() !== "DELETE";
+    };
+    ov.querySelector("#no").onclick = () => ov.remove();
+    yes.onclick = () => {
+      if (input.value.trim() !== "DELETE") return;
+      state.maids = state.maids.filter((m) => m.id !== maid.id);
+      save(state);
+      ov.remove();
+      toast(`${maid.name} removed`);
+      navigate({ name: "home" });
+    };
+  }
+
   function openNameSheet(maid) {
     const ov = openOverlay(`
       <div class="sheet">
         <div class="sheet-handle"></div>
         <h2>Edit name</h2>
-        <p class="sheet-sub">This name appears on the home card and throughout her ledger.</p>
+        <p class="sheet-sub">This name appears on the home card and throughout their ledger.</p>
         <form id="name-form">
           <div class="field">
-            <label>Maid’s name</label>
+            <label>Name</label>
             <input name="name" required maxlength="40" value="${escapeHtml(maid.name)}" autofocus />
           </div>
           <div class="btn-row">
@@ -493,8 +602,8 @@
             <div class="hint" style="margin:8px 0 0">
               <strong>How to enter it</strong><br/>
               • <code>0</code> — clean start<br/>
-              • Positive e.g. <code>2000</code> — you already owed her ₹2,000<br/>
-              • Negative e.g. <code>-1500</code> — she already took ₹1,500 more than salary (type the minus sign)
+              • Positive e.g. <code>2000</code> — you already owed them ₹2,000<br/>
+              • Negative e.g. <code>-1500</code> — they already took ₹1,500 more than salary (type the minus sign)
             </div>
           </div>
           <div class="field">
@@ -671,6 +780,11 @@
 
   function render() {
     if (!state.setupDone || !state.maids?.length) {
+      // If setupDone but all removed → empty home with Add (not full setup again)
+      if (state.setupDone && Array.isArray(state.maids) && state.maids.length === 0) {
+        renderHome();
+        return;
+      }
       renderSetup();
       return;
     }
