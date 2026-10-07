@@ -226,3 +226,46 @@ a { color: var(--primary); }
 }
 
 .fab-spacer { height: 56px; }
+
+
+/* Attendance */
+.att-summary {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;
+}
+.att-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 650;
+  background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
+}
+.att-pill.warn { background: var(--negative-bg); color: var(--negative); border-color: #fecaca; }
+.att-pill.ok { background: var(--positive-bg); color: var(--positive); border-color: #a7f3d0; }
+.att-cal {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px; margin-bottom: 12px; max-height: 320px; overflow-y: auto;
+}
+.att-day {
+  display: grid; grid-template-columns: 72px 1fr 1fr; gap: 6px; align-items: center;
+}
+.att-day .dow {
+  font-size: 0.72rem; font-weight: 650; color: var(--text-muted);
+  line-height: 1.2;
+}
+.att-day .dow .num { display: block; color: var(--text); font-size: 0.85rem; font-weight: 700; }
+.att-shift {
+  min-height: 44px; border-radius: 10px; font-weight: 700; font-size: 0.8rem;
+  border: 1.5px solid var(--border); background: var(--bg); color: var(--text-muted);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; padding: 6px 4px; transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.att-shift .lbl { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.85; }
+.att-shift.present { background: #F0F7FF; border-color: #BFDBFE; color: var(--primary); }
+.att-shift.absent {
+  background: var(--negative-bg); border-color: #FECACA; color: var(--negative);
+}
+.att-shift:active { transform: scale(0.97); }
+.att-day.future .att-shift { opacity: 0.55; }
+.home-att {
+  margin-top: 6px; font-size: 0.72rem; color: var(--negative); font-weight: 600;
+}
+.stat .value.deduct { color: var(--negative); }
