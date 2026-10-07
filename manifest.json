@@ -3,7 +3,7 @@
   "short_name": "Hisaab Book",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#FFF8F0",
-  "theme_color": "#8B4513",
+  "background_color": "#F5F8FC",
+  "theme_color": "#2563EB",
   "description": "Personal maid salary tracker — local only"
 }
