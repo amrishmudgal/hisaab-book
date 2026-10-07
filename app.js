@@ -489,8 +489,13 @@
         <form id="open-form">
           <div class="field">
             <label>Starting balance (₹)</label>
-            <input name="bal" type="number" inputmode="numeric" step="1" required value="${Number(maid.startingBalance) || 0}" autofocus />
-            <div class="error" style="color:var(--text-muted)">Positive = you already owed her. Negative = she already owed the household.</div>
+            <input name="bal" type="number" inputmode="decimal" step="1" required value="${Number(maid.startingBalance) || 0}" autofocus />
+            <div class="hint" style="margin:8px 0 0">
+              <strong>How to enter it</strong><br/>
+              • <code>0</code> — clean start<br/>
+              • Positive e.g. <code>2000</code> — you already owed her ₹2,000<br/>
+              • Negative e.g. <code>-1500</code> — she already took ₹1,500 more than salary (type the minus sign)
+            </div>
           </div>
           <div class="field">
             <label>Track from month</label>
