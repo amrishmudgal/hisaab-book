@@ -242,18 +242,27 @@ a { color: var(--primary); }
 .att-cal {
   display: flex; flex-direction: column; gap: 6px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 8px; margin-bottom: 12px; max-height: 320px; overflow-y: auto;
+  padding: 8px; margin-bottom: 12px;
 }
 .att-day {
   display: grid; grid-template-columns: 72px 1fr 1fr; gap: 6px; align-items: center;
 }
 .att-day .dow {
   font-size: 0.72rem; font-weight: 650; color: var(--text-muted);
-  line-height: 1.2;
+  line-height: 1.2; text-align: left; background: none; border: 0; border-radius: 10px;
+  min-height: 48px; padding: 4px 6px; font-family: inherit;
 }
+.att-day .dow:active:not(:disabled) { background: #E0ECFF; }
+.att-day.today { background: #EFF6FF; border-radius: 12px; outline: 1.5px solid #93C5FD; }
+.att-day.today .dow, .att-day.today .dow b { color: var(--primary); }
+.att-cal button {
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;
+}
+.att-cal button:disabled { cursor: default; }
 .att-day .dow .num { display: block; color: var(--text); font-size: 0.85rem; font-weight: 700; }
 .att-shift {
-  min-height: 44px; border-radius: 10px; font-weight: 700; font-size: 0.8rem;
+  min-height: 48px; font-family: inherit; border-radius: 10px; font-weight: 700; font-size: 0.8rem;
   border: 1.5px solid var(--border); background: var(--bg); color: var(--text-muted);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1px; padding: 6px 4px; transition: background 0.12s, border-color 0.12s, color 0.12s;
@@ -263,8 +272,17 @@ a { color: var(--primary); }
 .att-shift.absent {
   background: var(--negative-bg); border-color: #FECACA; color: var(--negative);
 }
-.att-shift:active { transform: scale(0.97); }
-.att-day.future .att-shift { opacity: 0.55; }
+.att-shift.absent { background: #DC2626; border-color: #DC2626; color: #fff; }
+.att-shift:active:not(:disabled) { transform: scale(0.96); filter: brightness(0.95); }
+.att-day.future { opacity: 0.4; }
+.att-day.future .att-shift { background: var(--surface-2); border-color: var(--border); color: var(--text-muted); }
+.undo-toast span { white-space: nowrap; }
+.undo-toast { width: max-content; display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 16px; }
+.undo-btn {
+  background: none; border: 0; color: #93C5FD; font-weight: 800; font-size: 0.85rem;
+  padding: 8px 12px; min-height: 40px; border-radius: 999px; font-family: inherit;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
 .home-att {
   margin-top: 6px; font-size: 0.72rem; color: var(--negative); font-weight: 600;
 }

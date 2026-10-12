@@ -483,20 +483,74 @@
       const morningAbsent = isAbsent(maid, date, "morning");
       const eveningAbsent = isAbsent(maid, date, "evening");
       const future = date > today;
+      const isToday = date === today;
+      const shiftBtn = (shift, label, absent) => `
+          <button type="button" class="att-shift ${absent ? "absent" : "present"}" data-shift="${shift}" data-date="${date}" aria-pressed="${absent}" ${future ? "disabled" : ""} aria-label="${label} ${d} ${weekday}">
+            <span class="lbl">${label}</span>
+            <span class="st">${future ? "—" : absent ? "✕ Absent" : "Present"}</span>
+          </button>`;
       rows.push(`
-        <div class="att-day${future ? " future" : ""}" data-date="${date}">
-          <div class="dow"><span class="num">${d}</span>${weekday}</div>
-          <button type="button" class="att-shift ${morningAbsent ? "absent" : "present"}" data-shift="morning" data-date="${date}" aria-pressed="${morningAbsent}">
-            <span class="lbl">Morning</span>
-            <span>${morningAbsent ? "Absent" : "Present"}</span>
-          </button>
-          <button type="button" class="att-shift ${eveningAbsent ? "absent" : "present"}" data-shift="evening" data-date="${date}" aria-pressed="${eveningAbsent}">
-            <span class="lbl">Evening</span>
-            <span>${eveningAbsent ? "Absent" : "Present"}</span>
-          </button>
+        <div class="att-day${future ? " future" : ""}${isToday ? " today" : ""}" data-date="${date}">
+          <button type="button" class="dow" data-day="${date}" ${future ? "disabled" : ""} aria-label="Toggle full day ${d} ${weekday}"><span class="num">${d}</span>${weekday}${isToday ? ' · <b>Today</b>' : ""}</button>
+          ${shiftBtn("morning", "Morning", morningAbsent)}
+          ${shiftBtn("evening", "Evening", eveningAbsent)}
         </div>`);
     }
     return rows.join("");
+  }
+
+  function attPills(a) {
+    return `<span class="att-pill">${a.absentShifts} absent shift${a.absentShifts === 1 ? "" : "s"}</span>
+          <span class="att-pill ${a.freeRemaining > 0 ? "ok" : ""}">${a.freeRemaining} of ${a.free} free left</span>
+          <span class="att-pill ${a.deduction > 0 ? "warn" : ""}">Deduction ${a.deduction > 0 ? "−" : ""}${formatINR(a.deduction)}</span>`;
+  }
+
+  function setAbsence(maid, date, shift, absent) {
+    if (isAbsent(maid, date, shift) !== absent) toggleAbsence(maid, date, shift);
+  }
+
+  /** Update attendance chips + totals in place (no re-render, no scroll jump). */
+  function updateAttendanceUI(maid, viewMonth) {
+    const s = monthSummary(maid, viewMonth);
+    const a = s.att;
+    document.querySelectorAll("#att-cal .att-shift").forEach((btn) => {
+      const ab = isAbsent(maid, btn.getAttribute("data-date"), btn.getAttribute("data-shift"));
+      btn.classList.toggle("absent", ab);
+      btn.classList.toggle("present", !ab);
+      btn.setAttribute("aria-pressed", String(ab));
+      const st = btn.querySelector(".st");
+      if (st) st.textContent = ab ? "✕ Absent" : "Present";
+    });
+    const set = (id, html, cls) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = html;
+      if (cls !== undefined) el.className = cls;
+    };
+    set("att-summary", attPills(a));
+    set("s-ded", `${a.deduction > 0 ? "−" : ""}${formatINR(a.deduction)}`, `value ${a.deduction > 0 ? "deduct" : ""}`);
+    set("s-eff", formatINR(s.effectiveSalary));
+    set("s-close", formatINR(s.closing), `value ${balClass(s.closing)}`);
+    set("s-owed", formatINR(s.owed), `value big ${balClass(s.owed)}`);
+    set("s-chip", balChip(s.closing));
+  }
+
+  let undoTimer;
+  function undoToast(msg, onUndo) {
+    document.querySelectorAll(".toast").forEach((t) => t.remove());
+    clearTimeout(undoTimer);
+    const el = document.createElement("div");
+    el.className = "toast undo-toast";
+    el.setAttribute("role", "status");
+    el.innerHTML = `<span></span><button type="button" class="undo-btn">Undo</button>`;
+    el.firstChild.textContent = msg;
+    el.querySelector("button").onclick = () => {
+      clearTimeout(undoTimer);
+      el.remove();
+      onUndo();
+    };
+    document.body.appendChild(el);
+    undoTimer = setTimeout(() => el.remove(), 3500);
   }
 
   function renderDetail() {
@@ -551,11 +605,11 @@
           </div>
           <div class="stat">
             <div class="label">Attendance deduction</div>
-            <div class="value ${a.deduction > 0 ? "deduct" : ""}">${a.deduction > 0 ? "−" : ""}${formatINR(a.deduction)}</div>
+            <div class="value ${a.deduction > 0 ? "deduct" : ""}" id="s-ded">${a.deduction > 0 ? "−" : ""}${formatINR(a.deduction)}</div>
           </div>
           <div class="stat">
             <div class="label">Effective salary</div>
-            <div class="value">${formatINR(s.effectiveSalary)}</div>
+            <div class="value" id="s-eff">${formatINR(s.effectiveSalary)}</div>
           </div>
           <div class="stat">
             <div class="label">Advances paid</div>
@@ -563,12 +617,12 @@
           </div>
           <div class="stat">
             <div class="label">Closing balance</div>
-            <div class="value ${balClass(s.closing)}">${formatINR(s.closing)}</div>
+            <div class="value ${balClass(s.closing)}" id="s-close">${formatINR(s.closing)}</div>
           </div>
           <div class="stat wide">
             <div class="label">This month owed (opening + effective)</div>
-            <div class="value big ${balClass(s.owed)}">${formatINR(s.owed)}</div>
-            <div style="margin-top:8px">${balChip(s.closing)}</div>
+            <div class="value big ${balClass(s.owed)}" id="s-owed">${formatINR(s.owed)}</div>
+            <div style="margin-top:8px" id="s-chip">${balChip(s.closing)}</div>
             <div style="margin-top:8px;font-size:0.75rem;color:var(--text-muted)">Tracking from ${formatMonthLabel(s.trackingFrom)} · Starting balance ${formatINR(maid.startingBalance || 0)}</div>
           </div>
         </div>
@@ -577,14 +631,10 @@
           <span>Attendance · ${formatMonthLabel(viewMonth)}</span>
           <button class="btn btn-secondary" id="toggle-att" type="button" style="flex:none;min-width:auto;padding:8px 14px;min-height:40px">${showAtt ? "Hide" : "Mark"}</button>
         </div>
-        <div class="att-summary">
-          <span class="att-pill">${a.absentShifts} absent shift${a.absentShifts === 1 ? "" : "s"}</span>
-          <span class="att-pill ${a.freeRemaining > 0 ? "ok" : ""}">${a.freeRemaining} of ${a.free} free left</span>
-          <span class="att-pill ${a.deduction > 0 ? "warn" : ""}">Deduction ${a.deduction > 0 ? "−" : ""}${formatINR(a.deduction)}</span>
-        </div>
+        <div class="att-summary" id="att-summary">${attPills(a)}</div>
         ${
           showAtt
-            ? `<p class="hint" style="margin-bottom:8px">Tap Morning / Evening to toggle Absent ↔ Present. Default is present (nothing stored). First ${a.free} absent shifts this month are free leave.</p>
+            ? `<p class="hint" style="margin-bottom:8px">Tap a shift to mark Absent; tap again for Present. Tap the date to mark the full day. Future days are locked. First ${a.free} absent shifts this month are free leave.</p>
                <div class="att-cal" id="att-cal">${buildAttendanceCalendar(maid, viewMonth)}</div>`
             : ""
         }
@@ -649,14 +699,49 @@
 
     const cal = document.getElementById("att-cal");
     if (cal) {
-      cal.querySelectorAll(".att-shift").forEach((btn) => {
-        btn.onclick = () => {
-          const date = btn.getAttribute("data-date");
-          const shift = btn.getAttribute("data-shift");
-          toggleAbsence(maid, date, shift);
+      // Keep the tapped row pinned on screen even if summary text above changes height.
+      const refresh = (anchor) => {
+        const top = anchor && anchor.isConnected ? anchor.getBoundingClientRect().top : null;
+        updateAttendanceUI(maid, viewMonth);
+        if (top != null) {
+          const diff = anchor.getBoundingClientRect().top - top;
+          if (Math.abs(diff) > 0.5) window.scrollBy(0, diff);
+        }
+      };
+      cal.addEventListener("click", (e) => {
+        const btn = e.target.closest("button");
+        if (!btn || btn.disabled || !cal.contains(btn)) return;
+        e.preventDefault();
+        const day = btn.getAttribute("data-day");
+        if (day) {
+          if (day > todayISO()) return;
+          const before = { m: isAbsent(maid, day, "morning"), e: isAbsent(maid, day, "evening") };
+          const target = !(before.m && before.e); // mark both absent unless both already absent
+          setAbsence(maid, day, "morning", target);
+          setAbsence(maid, day, "evening", target);
           save(state);
-          navigate({ name: "detail", maidId: maid.id, month: viewMonth, showAttendance: true });
-        };
+          refresh(btn);
+          undoToast(`${formatDate(day)} · full day ${target ? "absent" : "present"}`, () => {
+            setAbsence(maid, day, "morning", before.m);
+            setAbsence(maid, day, "evening", before.e);
+            save(state);
+            refresh(btn);
+          });
+          return;
+        }
+        const date = btn.getAttribute("data-date");
+        const shift = btn.getAttribute("data-shift");
+        if (!date || !shift || date > todayISO()) return;
+        toggleAbsence(maid, date, shift);
+        save(state);
+        refresh(btn);
+        const nowAbsent = isAbsent(maid, date, shift);
+        const label = shift === "morning" ? "Morning" : "Evening";
+        undoToast(`${formatDate(date)} ${label} ${nowAbsent ? "absent" : "present"}`, () => {
+          setAbsence(maid, date, shift, !nowAbsent);
+          save(state);
+          refresh(btn);
+        });
       });
     }
 
